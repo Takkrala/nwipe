@@ -138,14 +138,14 @@ int create_pdf( nwipe_context_t* ptr )
     pdf_add_line( pdf, NULL, 50, 650, 550, 650, 3, PDF_BLACK );
     pdf_add_image_data( pdf, NULL, 45, 665, 100, 100, bin2c_shred_db_jpg, 27063 );
     pdf_set_font( pdf, "Helvetica-Bold" );
-    snprintf( model_header, sizeof( model_header ), " %s: %s ", "Model", c->device_model );
+    snprintf( model_header, sizeof( model_header ), " %s: %s ", "Model", c->system_product_name );
     pdf_add_text_wrap( pdf, NULL, model_header, 14, 0, 755, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-    snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "S/N", c->device_serial_no );
+    snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "S/N", c->system_serial_number );
     pdf_add_text_wrap( pdf, NULL, serial_header, 14, 0, 735, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     pdf_set_font( pdf, "Helvetica" );
 
     pdf_add_text_wrap( pdf, NULL, "Disk Erasure Report", 24, 0, 695, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-    snprintf( barcode, sizeof( barcode ), "%s:%s", c->device_model, c->device_serial_no );
+    snprintf( barcode, sizeof( barcode ), "%s:%s", c->system_product_name, c->system_serial_number );
     pdf_add_text_wrap(
         pdf, NULL, "Page 1 - Erasure Status", 14, 0, 670, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     pdf_add_barcode( pdf, NULL, PDF_BARCODE_128A, 100, 790, 400, 25, barcode, PDF_BLACK );
@@ -804,15 +804,15 @@ int create_pdf( nwipe_context_t* ptr )
      * by converting any non alphanumeric characters to an underscore or hyphon
      */
     replace_non_alphanumeric( end_time_text, '-' );
-    replace_non_alphanumeric( c->device_model, '_' );
-    replace_non_alphanumeric( c->device_serial_no, '_' );
+    replace_non_alphanumeric( c->system_product_name, '_' );
+    replace_non_alphanumeric( c->system_serial_no, '_' );
     snprintf( c->PDF_filename,
               sizeof( c->PDF_filename ),
-              "%s/nwipe_report_%s_Model_%s_Serial_%s.pdf",
+              "%s/wipe_report_%s_Model_%s_Serial_%s.pdf",
               nwipe_options.PDFreportpath,
               end_time_text,
-              c->device_model,
-              c->device_serial_no );
+              c->system_product_name,
+              c->system_serial_no );
 
     pdf_save( pdf, c->PDF_filename );
     pdf_destroy( pdf );

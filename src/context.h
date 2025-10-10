@@ -118,6 +118,8 @@ typedef struct nwipe_context_t_
     char device_serial_no[NWIPE_SERIALNUMBER_LENGTH
                           + 1];  // Serial number(processed, 20 characters plus null termination) of the device.
     int device_target;  // The device target.
+    char system_product_name;
+    char system_serial_number;
 
     u64 eta;  // The estimated number of seconds until method completion.
     int entropy_fd;  // The entropy source. Usually /dev/urandom.

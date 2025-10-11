@@ -645,8 +645,7 @@ int nwipe_log_sysinfo()
 void nwipe_log_summary( nwipe_context_t** ptr, int nwipe_selected )
 {
 
-strncpy(ptr->system_product_name, found_product_name, sizeof(ptr->system_product_name) - 1);
-strncpy(ptr->system_serial_number, found_serial_number, sizeof(ptr->system_serial_number) - 1);
+
     /* Prints two summary tables, the first is the device pass and verification summary
      * and the second is the main summary table detaining the drives, status, throughput,
      * model and serial number.

@@ -75,6 +75,7 @@ typedef struct nwipe_speedring_t_
 
 #define NWIPE_DEVICE_LABEL_LENGTH 200
 #define NWIPE_DEVICE_SIZE_TXT_LENGTH 8
+#define NWIPE_SYSINFO_LENGTH 128
 
 // Arbitrary length, so far most paths don't exceed about 25 characters
 #define MAX_HWMON_PATH_LENGTH 100
@@ -118,7 +119,9 @@ typedef struct nwipe_context_t_
     char device_serial_no[NWIPE_SERIALNUMBER_LENGTH
                           + 1];  // Serial number(processed, 20 characters plus null termination) of the device.
     int device_target;  // The device target.
-   
+    char system_product_name[NWIPE_SYSINFO_LENGTH];
+    char system_serial_number[NWIPE_SYSINFO_LENGTH];
+
 
     u64 eta;  // The estimated number of seconds until method completion.
     int entropy_fd;  // The entropy source. Usually /dev/urandom.

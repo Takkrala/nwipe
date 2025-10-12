@@ -609,6 +609,14 @@ int nwipe_log_sysinfo()
                 {
                     path[len - 1] = 0;
                 }
+                    if (strcmp(&dmidecode_keywords[keywords_idx][0][0], "system-product-name") == 0) {
+                    strncpy(context->system_name, path, NWIPE_SYSINFO_LENGTH-1);
+                    context->system_name[NWIPE_SYSINFO_LENGTH-1] = 0;
+                    }
+                    if (strcmp(&dmidecode_keywords[keywords_idx][0][0], "system-serial-number") == 0) {
+                    strncpy(context->system_serial_no, path, NWIPE_SYSINFO_LENGTH-1);
+                    context->system_serial_no[NWIPE_SYSINFO_LENGTH-1] = 0;
+                    }
                 if( nwipe_options.quiet )
                 {
                     if( *( &dmidecode_keywords[keywords_idx][1][0] ) == '0' )

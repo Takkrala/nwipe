@@ -804,15 +804,15 @@ int create_pdf( nwipe_context_t* ptr )
      * by converting any non alphanumeric characters to an underscore or hyphon
      */
     replace_non_alphanumeric( end_time_text, '-' );
-    replace_non_alphanumeric( c->system_name, '_' );
-    replace_non_alphanumeric( c->system_serial_no, '_' );
+    replace_non_alphanumeric( c->device_model, '_' );
+    replace_non_alphanumeric( c->device_serial_no, '_' );
     snprintf( c->PDF_filename,
               sizeof( c->PDF_filename ),
               "%s/wipe_report_%s_Model_%s_Serial_%s.pdf",
               nwipe_options.PDFreportpath,
               end_time_text,
-              c->system_name,
-              c->system_serial_no );
+              c->device_model,
+              c->device_serial_no );
 
     pdf_save( pdf, c->PDF_filename );
     pdf_destroy( pdf );

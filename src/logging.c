@@ -507,7 +507,7 @@ void nwipe_log_OSinfo()
     return;
 }
 
-int nwipe_log_sysinfo(nwipe_context_t *c)
+int nwipe_log_sysinfo()
 {
     FILE* fp;
     char path[256];

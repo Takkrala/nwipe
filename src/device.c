@@ -1,3 +1,4 @@
+
 /*
  *  device.c:  Device routines for nwipe.
  *

@@ -95,8 +95,8 @@ int create_pdf( nwipe_context_t* ptr )
     //    float height;
     //    float page_width;
 
-    struct pdf_info info = { .creator = "Telecomraadgevers",
-                             .producer = "Dylan de Graaf",
+    struct pdf_info info = { .creator = "https://github.com/PartialVolume/shredos.x86_64",
+                             .producer = "https://github.com/martijnvanbrummelen/nwipe",
                              .title = "PDF Disk Erasure Certificate",
                              .author = "Nwipe",
                              .subject = "Disk Erase Certificate",
@@ -121,7 +121,7 @@ int create_pdf( nwipe_context_t* ptr )
     pdf = pdf_create( PDF_A4_WIDTH, PDF_A4_HEIGHT, &info );
 
     /* Create footer text string and append the version */
-    snprintf( pdf_footer, sizeof( pdf_footer ), "Disc Erasure by TelecomRaadgevers", version_string );
+    snprintf( pdf_footer, sizeof( pdf_footer ), "Disc Erasure by NWIPE version %s", version_string );
 
     pdf_set_font( pdf, "Helvetica" );
     struct pdf_object* page_1 = pdf_append_page( pdf );
@@ -138,14 +138,14 @@ int create_pdf( nwipe_context_t* ptr )
     pdf_add_line( pdf, NULL, 50, 650, 550, 650, 3, PDF_BLACK );
     pdf_add_image_data( pdf, NULL, 45, 665, 100, 100, bin2c_shred_db_jpg, 27063 );
     pdf_set_font( pdf, "Helvetica-Bold" );
-    snprintf( model_header, sizeof( model_header ), " %s: %s ", "Model", c->system_product_name );
+    snprintf( model_header, sizeof( model_header ), " %s: %s ", "Model", c->device_model );
     pdf_add_text_wrap( pdf, NULL, model_header, 14, 0, 755, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-    snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "S/N", c->system_serial_number );
+    snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "S/N", c->device_serial_no );
     pdf_add_text_wrap( pdf, NULL, serial_header, 14, 0, 735, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     pdf_set_font( pdf, "Helvetica" );
 
     pdf_add_text_wrap( pdf, NULL, "Disk Erasure Report", 24, 0, 695, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-    snprintf( barcode, sizeof( barcode ), "%s:%s", c->system_product_name, c->system_serial_number );
+    snprintf( barcode, sizeof( barcode ), "%s:%s", c->device_model, c->device_serial_no );
     pdf_add_text_wrap(
         pdf, NULL, "Page 1 - Erasure Status", 14, 0, 670, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     pdf_add_barcode( pdf, NULL, PDF_BARCODE_128A, 100, 790, 400, 25, barcode, PDF_BLACK );
@@ -808,7 +808,7 @@ int create_pdf( nwipe_context_t* ptr )
     replace_non_alphanumeric( c->device_serial_no, '_' );
     snprintf( c->PDF_filename,
               sizeof( c->PDF_filename ),
-              "%s/wipe_report_%s_Model_%s_Serial_%s.pdf",
+              "%s/nwipe_report_%s_Model_%s_Serial_%s.pdf",
               nwipe_options.PDFreportpath,
               end_time_text,
               c->device_model,

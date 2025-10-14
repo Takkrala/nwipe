@@ -609,7 +609,6 @@ int nwipe_log_sysinfo()
                 {
                     path[len - 1] = 0;
                 }
-                   
                 if( nwipe_options.quiet )
                 {
                     if( *( &dmidecode_keywords[keywords_idx][1][0] ) == '0' )
@@ -645,8 +644,6 @@ int nwipe_log_sysinfo()
 
 void nwipe_log_summary( nwipe_context_t** ptr, int nwipe_selected )
 {
-
-
     /* Prints two summary tables, the first is the device pass and verification summary
      * and the second is the main summary table detaining the drives, status, throughput,
      * model and serial number.
@@ -678,8 +675,6 @@ void nwipe_log_summary( nwipe_context_t** ptr, int nwipe_selected )
     u64 total_throughput;
     nwipe_context_t** c;
     c = ptr;
-    char system_serial_number[18];
-    char system_product_name[18];
 
     exclamation_flag[0] = 0;
     device[0] = 0;
@@ -695,9 +690,7 @@ void nwipe_log_summary( nwipe_context_t** ptr, int nwipe_selected )
     hours = 0;
     minutes = 0;
     seconds = 0;
-    system_serial_number[0] = 0;
-    system_product_name[0] = 0;
-    
+
     /* A time buffer. */
     time_t t;
 
@@ -877,15 +870,6 @@ void nwipe_log_summary( nwipe_context_t** ptr, int nwipe_selected )
         /* write the duration string to the drive context for later use by create_pdf() */
         snprintf( c[i]->duration_str, sizeof( c[i]->duration_str ), "%02i:%02i:%02i", hours, minutes, seconds );
 
-        /* Host model */
-        strncpy( system_product_name, c[i]->system_product_name, 17);
-        model[17] =0;
-
-        /* Host Serial */
-        strncpy( system_serial_number, c[i]->system_serial_number, 17);
-        serial_no[NWIPE_SERIALNUMBER_LENGTH] = 0;
-        model[17] = 0;
-        
         /* Device Model */
         strncpy( model, c[i]->device_model, 17 );
         model[17] = 0;

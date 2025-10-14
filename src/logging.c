@@ -878,11 +878,11 @@ void nwipe_log_summary( nwipe_context_t** ptr, int nwipe_selected )
         snprintf( c[i]->duration_str, sizeof( c[i]->duration_str ), "%02i:%02i:%02i", hours, minutes, seconds );
 
         /* Host model */
-        strncpy( system_product_name, c[i]->system_name, 17);
+        strncpy( system_product_name, c[i]->system_product_name, 17);
         model[17] =0;
 
         /* Host Serial */
-        strncpy( system_serial_number, c[i]->system_serial_no, 17);
+        strncpy( system_serial_number, c[i]->system_serial_number, 17);
         serial_no[NWIPE_SERIALNUMBER_LENGTH] = 0;
         model[17] = 0;
         

@@ -119,8 +119,8 @@ typedef struct nwipe_context_t_
     char device_serial_no[NWIPE_SERIALNUMBER_LENGTH
                           + 1];  // Serial number(processed, 20 characters plus null termination) of the device.
     int device_target;  // The device target.
-    char system_name[NWIPE_SYSINFO_LENGTH];
-    char system_serial_no[NWIPE_SYSINFO_LENGTH];
+    char system_product_name[NWIPE_SYSINFO_LENGTH];
+    char system_serial_number[NWIPE_SYSINFO_LENGTH];
 
 
     u64 eta;  // The estimated number of seconds until method completion.

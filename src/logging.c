@@ -631,7 +631,7 @@ int nwipe_log_sysinfo()
                     else
                     {
                         nwipe_log( NWIPE_LOG_INFO, "%s = %s", &dmidecode_keywords[keywords_idx][0][0], path );
-
+           
                         /* if system-serial-number copy result to extern string */
                         if( keywords_idx == 5 )
                         {
@@ -643,7 +643,18 @@ int nwipe_log_sysinfo()
                             strncpy( dmidecode_system_uuid, path, DMIDECODE_RESULT_LENGTH );
                             dmidecode_system_uuid[DMIDECODE_RESULT_LENGTH - 1] = 0;
                         }
+
                     }
+                         if( strcmp( &dmidecode_keywords[keywords_idx][0][0], "system-product-name" ) == 0 )
+                        {
+                            strncpy( nwipe_options.system_product_name, path, sizeof( nwipe_options.system_product_name ) - 1 );
+                            nwipe_options.system_product_name[sizeof( nwipe_options.system_product_name ) - 1] = '\0';
+                        }
+                        else if( strcmp( &dmidecode_keywords[keywords_idx][0][0], "system-serial-number" ) == 0 )
+                        {
+                            strncpy( nwipe_options.system_serial_number, path, sizeof( nwipe_options.system_serial_number ) - 1 );
+                            nwipe_options.system_serial_number[sizeof( nwipe_options.system_serial_number ) - 1] = '\0';
+                        }
                 }
                 else
                 {

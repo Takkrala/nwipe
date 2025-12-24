@@ -97,8 +97,8 @@ int create_pdf( nwipe_context_t* ptr )
     //    float height;
     //    float page_width;
 
-    struct pdf_info info = { .creator = "https://github.com/PartialVolume/shredos.x86_64",
-                             .producer = "https://github.com/martijnvanbrummelen/nwipe",
+    struct pdf_info info = { .creator = "TelecomRaadgevers",
+                             .producer = "Dylan de Graaf",
                              .title = "PDF Disk Erasure Certificate",
                              .author = "Nwipe",
                              .subject = "Disk Erase Certificate",
@@ -123,7 +123,7 @@ int create_pdf( nwipe_context_t* ptr )
     pdf = pdf_create( PDF_A4_WIDTH, PDF_A4_HEIGHT, &info );
 
     /* Create footer text string and append the version */
-    snprintf( pdf_footer, sizeof( pdf_footer ), "Disc Erasure by NWIPE version %s", version_string );
+    snprintf( pdf_footer, sizeof( pdf_footer ), "Disc Erasure by TelecomRaadgevers", version_string );
 
     pdf_set_font( pdf, "Helvetica" );
     struct pdf_object* page_1 = pdf_append_page( pdf );
@@ -232,7 +232,7 @@ int create_pdf( nwipe_context_t* ptr )
      */
     pdf_add_text( pdf, NULL, "Make/Model:", 12, 60, 410, PDF_GRAY );
     pdf_set_font( pdf, "Helvetica-Bold" );
-    pdf_add_text( pdf, NULL, c->device_model, text_size_data, 135, 410, PDF_BLACK );
+    pdf_add_text( pdf, NULL, c->device_serial_no, text_size_data, 135, 410, PDF_BLACK );
     pdf_set_font( pdf, "Helvetica" );
 
     /************
@@ -796,16 +796,15 @@ int create_pdf( nwipe_context_t* ptr )
      * by converting any non alphanumeric characters to an underscore or hyphen
      */
     replace_non_alphanumeric( end_time_text, '-' );
-    replace_non_alphanumeric( c->device_model, '_' );
-    replace_non_alphanumeric( c->device_serial_no, '_' );
+    replace_non_alphanumeric( nwipe_options.system_product_name, '_' );
+    replace_non_alphanumeric( nwipe_options.system_serial_number, '_' );
     snprintf( c->PDF_filename,
               sizeof( c->PDF_filename ),
-              "%s/nwipe_report_%s_Model_%s_Serial_%s_device_%s.pdf",
+              "%s/nwipe_report_%s_System_%s_Serial_%s_device_%s.pdf",
               nwipe_options.PDFreportpath,
               end_time_text,
-              c->device_model,
-              c->device_serial_no,
-              c->device_name_terse );
+                nwipe_options.system_product_name,  // Global system product name
+                nwipe_options.system_serial_number );  // Global system serial number
 
     pdf_save( pdf, c->PDF_filename );
     pdf_destroy( pdf );
@@ -1027,7 +1026,7 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
         pdf_add_text_wrap( pdf, NULL, hostid_header, 11, 0, 688, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
         snprintf( hostid_header, sizeof( hostid_header ), " %s: %s ", "System uuid", dmidecode_system_uuid );
         pdf_add_text_wrap( pdf, NULL, hostid_header, 11, 0, 673, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-
+        
         /* libconfig: Obtain PDF_Certificate.User_Defined_Tag from nwipe.conf */
         setting = config_lookup( &nwipe_cfg, "PDF_Certificate" );
 

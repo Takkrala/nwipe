@@ -97,8 +97,8 @@ int create_pdf( nwipe_context_t* ptr )
     //    float height;
     //    float page_width;
 
-    struct pdf_info info = { .creator = "https://github.com/PartialVolume/shredos.x86_64",
-                             .producer = "https://github.com/martijnvanbrummelen/nwipe",
+    struct pdf_info info = { .creator = "https://github.com/Takkrala/shredos.x86_64",
+                             .producer = "https://github.com/Takkrala/nwipe",
                              .title = "PDF Disk Erasure Certificate",
                              .author = "Nwipe",
                              .subject = "Disk Erase Certificate",
@@ -123,7 +123,7 @@ int create_pdf( nwipe_context_t* ptr )
     pdf = pdf_create( PDF_A4_WIDTH, PDF_A4_HEIGHT, &info );
 
     /* Create footer text string and append the version */
-    snprintf( pdf_footer, sizeof( pdf_footer ), "Disc Erasure by NWIPE version %s", version_string );
+    snprintf( pdf_footer, sizeof( pdf_footer ), "Disc Erasure by TelecomRaadgevers", version_string );
 
     pdf_set_font( pdf, "Helvetica" );
     struct pdf_object* page_1 = pdf_append_page( pdf );
@@ -795,17 +795,23 @@ int create_pdf( nwipe_context_t* ptr )
      * Sanitize the strings that we are going to use to create the report filename
      * by converting any non alphanumeric characters to an underscore or hyphen
      */
+
+    extern char dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH];
+    extern char dmidecode_system_model_name[DMIDECODE_RESULT_LENGTH];
+    extern char dmidecode_system_manufacturer[DMIDECODE_RESULT_LENGTH];
+    
     replace_non_alphanumeric( end_time_text, '-' );
-    replace_non_alphanumeric( c->device_model, '_' );
-    replace_non_alphanumeric( c->device_serial_no, '_' );
+    replace_non_alphanumeric( dmidecode_system_model_name, '_' );
+    replace_non_alphanumeric( dmidecode_system_serial_number, '_' );
+    replace_non_alphanumeric( dmidecode_system_manufacturer, '_' );
     snprintf( c->PDF_filename,
               sizeof( c->PDF_filename ),
-              "%s/nwipe_report_%s_Model_%s_Serial_%s_device_%s.pdf",
+              "%s/nwipe_report_%s_Brand_%s_Model_%s_Serial_%s.pdf",
               nwipe_options.PDFreportpath,
               end_time_text,
-              c->device_model,
-              c->device_serial_no,
-              c->device_name_terse );
+              dmidecode_system_model_name,
+              dmidecode_system_serial_number,
+              dmidecode_system_manufacturer );
 
     pdf_save( pdf, c->PDF_filename );
     pdf_destroy( pdf );
@@ -1003,6 +1009,7 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
 {
     extern char dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH];
     extern char dmidecode_system_uuid[DMIDECODE_RESULT_LENGTH];
+    extern char dmidecode_system_manufacturer[DMIDECODE_RESULT_LENGTH];
 
     const char* user_defined_tag;
 
@@ -1044,15 +1051,19 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
     }
     else
     {
-        snprintf( model_header, sizeof( model_header ), " %s: %s ", "Disk Model", c->device_model );
-        pdf_add_text_wrap( pdf, NULL, model_header, 11, 0, 696, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-        snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "Disk S/N", c->device_serial_no );
-        pdf_add_text_wrap( pdf, NULL, serial_header, 11, 0, 681, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
+        snprintf( model_header, sizeof( model_header ), " %s: %s ", "Device Brand", dmidecode_system_manufacturer );
+        pdf_add_text_wrap( pdf, NULL, model_header, 11, 0, 718, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
+        snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "Device Model", dmidecode_system_product_name );
+        pdf_add_text_wrap( pdf, NULL, serial_header, 11, 0, 703, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
+        snprintf( hostid_header, sizeof( hostid_header ), " %s: %s ", "Device S/N", dmidecode_system_serial_number);
+        pdf_add_text_wrap( pdf, NULL, hostid_header, 11, 0, 688, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
+        snprintf( hostid_header, sizeof( hostid_header ), " %s: %s ", "Disk S/N", c->device_serial_no );
+        pdf_add_text_wrap( pdf, NULL, hostid_header, 11, 0, 673, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     }
     pdf_set_font( pdf, "Helvetica" );
 
     pdf_add_text_wrap( pdf, NULL, "Disk Erasure Report", 24, 0, 765, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-    snprintf( barcode, sizeof( barcode ), "%s:%s", c->device_model, c->device_serial_no );
+    snprintf( barcode, sizeof( barcode ), "%s:%s", dmidecode_system_manufacturer, dmidecode_system_product_name, dmidecode_system_serial_number, c->device_serial_no );
     pdf_add_text_wrap( pdf, NULL, page_title, 14, 0, 745, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     pdf_add_barcode( pdf, NULL, PDF_BARCODE_128A, 100, 790, 400, 25, barcode, PDF_BLACK );
 }

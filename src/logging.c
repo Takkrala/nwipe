@@ -509,8 +509,8 @@ void nwipe_log_OSinfo()
 
 /* Globally accessable dmidecode host identifiable data. */
 char dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH];
-char dmidecode_system_uuid[DMIDECODE_RESULT_LENGTH];
-char dmidecode_baseboard_serial_number[DMIDECODE_RESULT_LENGTH];
+char dmidecode_system_model_name[DMIDECODE_RESULT_LENGTH];
+char dmidecode_system_manufacturer[DMIDECODE_RESULT_LENGTH];
 
 int nwipe_log_sysinfo()
 {
@@ -572,6 +572,8 @@ int nwipe_log_sysinfo()
     for( i = 0; i < DMIDECODE_RESULT_LENGTH; i++ )
     {
         dmidecode_system_serial_number[i] = 0;
+        dmidecode_system_product_name[i] = 0;
+        dmidecode_system_manufacturer[i] = 0;
     }
 
     p_dmidecode_command = 0;
@@ -638,9 +640,14 @@ int nwipe_log_sysinfo()
                             strncpy( dmidecode_system_serial_number, path, DMIDECODE_RESULT_LENGTH );
                             dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH - 1] = 0;
                         }
-                        if( keywords_idx == 6 )
+                        if( keywords_idx == 2 )
                         {
-                            strncpy( dmidecode_system_uuid, path, DMIDECODE_RESULT_LENGTH );
+                            strncpy( dmidecode_system_model_name, path, DMIDECODE_RESULT_LENGTH );
+                            dmidecode_system_uuid[DMIDECODE_RESULT_LENGTH - 1] = 0;
+                        }
+                        if( keywords_idx == 3 )
+                        {
+                            strncpy( dmidecode_system_manufacturer, path, DMIDECODE_RESULT_LENGTH );
                             dmidecode_system_uuid[DMIDECODE_RESULT_LENGTH - 1] = 0;
                         }
                     }
@@ -655,9 +662,14 @@ int nwipe_log_sysinfo()
                         strncpy( dmidecode_system_serial_number, path, DMIDECODE_RESULT_LENGTH );
                         dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH - 1] = 0;
                     }
-                    if( keywords_idx == 6 )
+                    if( keywords_idx == 2 )
                     {
-                        strncpy( dmidecode_system_uuid, path, DMIDECODE_RESULT_LENGTH );
+                        strncpy( dmidecode_system_model_name, path, DMIDECODE_RESULT_LENGTH );
+                        dmidecode_system_uuid[DMIDECODE_RESULT_LENGTH - 1] = 0;
+                    }
+                    if( keywords_idx == 3 )
+                    {
+                        strncpy( dmidecode_system_manufacturer, path, DMIDECODE_RESULT_LENGTH );
                         dmidecode_system_uuid[DMIDECODE_RESULT_LENGTH - 1] = 0;
                     }
                 }

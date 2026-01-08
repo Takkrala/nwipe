@@ -1010,7 +1010,7 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
     extern char dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH];
     extern char dmidecode_system_model_name[DMIDECODE_RESULT_LENGTH];
     extern char dmidecode_system_manufacturer[DMIDECODE_RESULT_LENGTH];
-
+    
     const char* user_defined_tag;
 
     /* variables used by libconfig for extracting data from nwipe.conf */
@@ -1053,7 +1053,7 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
     {
         snprintf( model_header, sizeof( model_header ), " %s: %s ", "Device Brand", dmidecode_system_manufacturer );
         pdf_add_text_wrap( pdf, NULL, model_header, 11, 0, 718, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-        snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "Device Model", dmidecode_system_product_name );
+        snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "Device Model", dmidecode_system_model_name );
         pdf_add_text_wrap( pdf, NULL, serial_header, 11, 0, 703, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
         snprintf( hostid_header, sizeof( hostid_header ), " %s: %s ", "Device S/N", dmidecode_system_serial_number);
         pdf_add_text_wrap( pdf, NULL, hostid_header, 11, 0, 688, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );

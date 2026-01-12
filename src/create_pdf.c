@@ -1063,7 +1063,7 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
     pdf_set_font( pdf, "Helvetica" );
 
     pdf_add_text_wrap( pdf, NULL, "Disk Erasure Report", 24, 0, 765, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-    snprintf( barcode, sizeof( barcode ), "%s:%s", dmidecode_system_model_name, dmidecode_system_serial_number );
+    snprintf( barcode, sizeof( barcode ), "%s:%s", dmidecode_system_manufacturer, dmidecode_system_model_name, dmidecode_system_serial_number, c->device_serial_no );
     pdf_add_text_wrap( pdf, NULL, page_title, 14, 0, 745, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     pdf_add_barcode( pdf, NULL, PDF_BARCODE_128A, 100, 790, 400, 25, barcode, PDF_BLACK );
 }

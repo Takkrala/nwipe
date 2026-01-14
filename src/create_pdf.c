@@ -809,9 +809,9 @@ int create_pdf( nwipe_context_t* ptr )
               "%s/nwipe_report_%s_Brand_%s_Model_%s_Serial_%s.pdf",
               nwipe_options.PDFreportpath,
               end_time_text,
+              dmidecode_system_manufacturer,
               dmidecode_system_model_name,
-              dmidecode_system_serial_number,
-              dmidecode_system_manufacturer );
+              dmidecode_system_serial_number );
 
     pdf_save( pdf, c->PDF_filename );
     pdf_destroy( pdf );

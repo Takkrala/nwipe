@@ -640,12 +640,12 @@ int nwipe_log_sysinfo()
                             strncpy( dmidecode_system_serial_number, path, DMIDECODE_RESULT_LENGTH );
                             dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH - 1] = 0;
                         }
-                        if( keywords_idx == 2 )
+                        if( keywords_idx == 3 )
                         {
                             strncpy( dmidecode_system_model_name, path, DMIDECODE_RESULT_LENGTH );
                             dmidecode_system_model_name[DMIDECODE_RESULT_LENGTH - 1] = 0;
                         }
-                        if( keywords_idx == 3 )
+                        if( keywords_idx == 2 )
                         {
                             strncpy( dmidecode_system_manufacturer, path, DMIDECODE_RESULT_LENGTH );
                             dmidecode_system_manufacturer[DMIDECODE_RESULT_LENGTH - 1] = 0;
@@ -662,12 +662,12 @@ int nwipe_log_sysinfo()
                         strncpy( dmidecode_system_serial_number, path, DMIDECODE_RESULT_LENGTH );
                         dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH - 1] = 0;
                     }
-                    if( keywords_idx == 2 )
+                    if( keywords_idx == 3 )
                     {
                         strncpy( dmidecode_system_model_name, path, DMIDECODE_RESULT_LENGTH );
                         dmidecode_system_model_name[DMIDECODE_RESULT_LENGTH - 1] = 0;
                     }
-                    if( keywords_idx == 3 )
+                    if( keywords_idx == 2 )
                     {
                         strncpy( dmidecode_system_manufacturer, path, DMIDECODE_RESULT_LENGTH );
                         dmidecode_system_manufacturer[DMIDECODE_RESULT_LENGTH - 1] = 0;

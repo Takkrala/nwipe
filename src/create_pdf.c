@@ -1051,19 +1051,15 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
     }
     else
     {
-        snprintf( model_header, sizeof( model_header ), " %s: %s ", "Device Brand", dmidecode_system_manufacturer );
-        pdf_add_text_wrap( pdf, NULL, model_header, 11, 0, 718, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-        snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "Device Model", dmidecode_system_model_name );
-        pdf_add_text_wrap( pdf, NULL, serial_header, 11, 0, 703, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-        snprintf( hostid_header, sizeof( hostid_header ), " %s: %s ", "Device S/N", dmidecode_system_serial_number);
-        pdf_add_text_wrap( pdf, NULL, hostid_header, 11, 0, 688, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-        snprintf( hostid_header, sizeof( hostid_header ), " %s: %s ", "Disk S/N", c->device_serial_no );
-        pdf_add_text_wrap( pdf, NULL, hostid_header, 11, 0, 673, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
+        snprintf( model_header, sizeof( model_header ), " %s: %s ", "Disk Model", c->device_model );
+        pdf_add_text_wrap( pdf, NULL, model_header, 11, 0, 696, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
+        snprintf( serial_header, sizeof( serial_header ), " %s: %s ", "Disk S/N", c->device_serial_no );
+        pdf_add_text_wrap( pdf, NULL, serial_header, 11, 0, 681, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     }
     pdf_set_font( pdf, "Helvetica" );
 
     pdf_add_text_wrap( pdf, NULL, "Disk Erasure Report", 24, 0, 765, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-    snprintf( barcode, sizeof( barcode ), "%s:%s", dmidecode_system_manufacturer, dmidecode_system_model_name, dmidecode_system_serial_number, c->device_serial_no );
+    snprintf( barcode, sizeof( barcode ), "%s:%s", c->device_model, c->device_serial_no );
     pdf_add_text_wrap( pdf, NULL, page_title, 14, 0, 745, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     pdf_add_barcode( pdf, NULL, PDF_BARCODE_128A, 100, 790, 400, 25, barcode, PDF_BLACK );
-}
+}5

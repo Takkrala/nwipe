@@ -97,10 +97,10 @@ int create_pdf( nwipe_context_t* ptr )
     //    float height;
     //    float page_width;
 
-    struct pdf_info info = { .creator = "https://github.com/Takkrala/shredos.x86_64",
-                             .producer = "https://github.com/Takkrala/nwipe",
+    struct pdf_info info = { .creator = "Telecom Raadgevers",
+                             .producer = "Dylan de Graaf",
                              .title = "PDF Disk Erasure Certificate",
-                             .author = "Nwipe",
+                             .author = "wipe",
                              .subject = "Disk Erase Certificate",
                              .date = "Today" };
 
@@ -806,7 +806,7 @@ int create_pdf( nwipe_context_t* ptr )
     replace_non_alphanumeric( dmidecode_system_manufacturer, '_' );
     snprintf( c->PDF_filename,
               sizeof( c->PDF_filename ),
-              "%s/nwipe_report_%s_Brand_%s_Model_%s_Serial_%s.pdf",
+              "%s/wipe_certificate_%s_Brand_%s_Model_%s_Serial_%s.pdf",
               nwipe_options.PDFreportpath,
               end_time_text,
               dmidecode_system_manufacturer,

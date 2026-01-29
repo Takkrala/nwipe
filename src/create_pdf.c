@@ -1062,4 +1062,4 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
     snprintf( barcode, sizeof( barcode ), "%s:%s", c->device_model, c->device_serial_no );
     pdf_add_text_wrap( pdf, NULL, page_title, 14, 0, 745, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
     pdf_add_barcode( pdf, NULL, PDF_BARCODE_128A, 100, 790, 400, 25, barcode, PDF_BLACK );
-}5
+}

@@ -100,10 +100,10 @@ int create_single_disc_pdf( nwipe_context_t* ptr )
     //    float height;
     //    float page_width;
 
-    struct pdf_info info = { .creator = "https://github.com/PartialVolume/shredos.x86_64",
-                             .producer = "https://github.com/martijnvanbrummelen/nwipe",
+    struct pdf_info info = { .creator = "Dylan de Graaf",
+                             .producer = "Telecom Raadgevers",
                              .title = "PDF Disk Erasure Certificate",
-                             .author = "Nwipe",
+                             .author = "TRueWipe",
                              .subject = "Disk Erase Certificate",
                              .date = "Today" };
 
@@ -126,7 +126,7 @@ int create_single_disc_pdf( nwipe_context_t* ptr )
     pdf = pdf_create( PDF_A4_WIDTH, PDF_A4_HEIGHT, &info );
 
     /* Create footer text string and append the version */
-    snprintf( pdf_footer, sizeof( pdf_footer ), "Disc Erasure by NWIPE version %s", version_string );
+    snprintf( pdf_footer, sizeof( pdf_footer ), "Disc Erasure by TRueWipe from Telecom Raadgevers", version_string );
 
     pdf_set_font( pdf, "Helvetica" );
     struct pdf_object* page_1 = pdf_append_page( pdf );

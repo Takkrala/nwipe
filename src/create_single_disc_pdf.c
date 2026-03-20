@@ -784,12 +784,11 @@ int create_single_disc_pdf( nwipe_context_t* ptr )
     replace_non_alphanumeric( c->device_serial_no, '_' );
     snprintf( c->PDF_filename,
               sizeof( c->PDF_filename ),
-              "%s/nwipe_report_%s_Model_%s_Serial_%s_device_%s.pdf",
+              "%s/TRueWipe_report_%s_DiskModel_%s_DiskSerial_%s.pdf",
               nwipe_options.PDFreportpath,
               end_time_text,
               c->device_model,
-              c->device_serial_no,
-              c->device_name_terse );
+              c->device_serial_no );
 
     pdf_save( pdf, c->PDF_filename );
     pdf_destroy( pdf );

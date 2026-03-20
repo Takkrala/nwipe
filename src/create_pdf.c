@@ -277,10 +277,10 @@ void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
         if( nwipe_options.PDF_toggle_host_info )
         {
             snprintf(
-                hostid_header, sizeof( hostid_header ), " %s: %s ", "System S/N", dmidecode_system_serial_number );
+                hostid_header, sizeof( hostid_header ), " %s: %s ", "System Model", dmidecode_system_model_name );
             pdf_add_text_wrap(
                 pdf, NULL, hostid_header, 11, 0, 688, 0, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
-            snprintf( hostid_header, sizeof( hostid_header ), " %s: %s ", "System", dmidecode_system_manufacturer );
+            snprintf( hostid_header, sizeof( hostid_header ), " %s: %s ", "System S/N", dmidecode_system_serial_number );
             pdf_add_text_wrap(
                 pdf, NULL, hostid_header, 11, 0, 673, 0, PDF_BLACK, page_width, PDF_ALIGN_CENTER, &height );
         }

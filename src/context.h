@@ -23,6 +23,7 @@
 #ifndef CONTEXT_H_
 #define CONTEXT_H_
 
+#include "nwipe.h"
 #include "prng.h"
 #ifndef __HDDTEMP_H__
 #include "hddtemp_scsi/hddtemp.h"
@@ -56,7 +57,8 @@ typedef enum nwipe_select_t_ {
     NWIPE_SELECT_TRUE_PARENT,  // A parent of this device has been selected, so the wipe is implied.
     NWIPE_SELECT_FALSE,  // Do not wipe this device.
     NWIPE_SELECT_FALSE_CHILD,  // A child of this device has been selected, so we can't wipe this device.
-    NWIPE_SELECT_DISABLED  // Do not wipe this device and do not allow it to be selected.
+    NWIPE_SELECT_DISABLED,  // We cannot wipe this device for technical reasons (do not allow selection).
+    NWIPE_SELECT_DISABLED_BUSY,  // The device is in use and --force is not set (do not allow selection).
 } nwipe_select_t;
 
 /* I/O mode for data path: auto, direct, or cached. */
@@ -65,6 +67,12 @@ typedef enum {
     NWIPE_IO_MODE_DIRECT, /* Force O_DIRECT, fail if not supported. */
     NWIPE_IO_MODE_CACHED /* Force cached I/O, never attempt O_DIRECT. */
 } nwipe_io_mode_t;
+
+/* I/O direction for data path. */
+typedef enum {
+    NWIPE_IO_DIRECTION_FORWARD = 0, /* Start -> End */
+    NWIPE_IO_DIRECTION_REVERSE, /* End -> Start */
+} nwipe_io_direction_t;
 
 #define NWIPE_KNOB_SPEEDRING_SIZE 30
 #define NWIPE_KNOB_SPEEDRING_GRANULARITY 10
@@ -102,6 +110,7 @@ typedef struct nwipe_context_t_
     /*
      * Device fields
      */
+    int device_busy;  // If libparted considers the device busy/mounted (0 = no, 1 = yes)
     int device_block_size;  // The soft block size reported by the device, as logical
     int device_sector_size;  // The logical sector size reported by libparted
     int device_phys_sector_size;  // The physical sector size reported by libparted
@@ -158,6 +167,7 @@ typedef struct nwipe_context_t_
     int signal;  // Set when the child is killed by a signal.
     nwipe_speedring_t speedring;  // Ring buffer for computing the rolling throughput average.
     short sync_status;  // A flag to indicate when the method is syncing.
+    short retry_status;  // A flag to indicate when the method is retrying.
     pthread_t thread;  // The ID of the thread.
     u64 throughput;  // Average throughput in bytes per second.
     char throughput_txt[13];  // Human readable throughput.
@@ -189,6 +199,7 @@ typedef struct nwipe_context_t_
     time_t start_time;  // Start time of wipe
     time_t end_time;  // End time of wipe
     u64 fsyncdata_errors;  // The number of fsyncdata errors across all passes.
+    u64 io_retries;  // The number of I/O retries across all passes.
     char PDF_filename[FILENAME_MAX];  // The filename of the PDF certificate/report.
     int HPA_status;  // 0 = No HPA found/disabled, 1 = HPA detected, 2 = Unknown, unable to checked,
                      // 3 = Not applicable to this device
@@ -207,6 +218,7 @@ typedef struct nwipe_context_t_
     int HPA_display_toggle_state;  // 0 or 1 Used to toggle between "[1TB] [ 33C]" and [HDA STATUS]
     time_t HPA_toggle_time;  // records a time, then if for instance 3 seconds has elapsed the display changes
     nwipe_io_mode_t io_mode;  // specific I/O method for a given drive, direct or cached.
+    nwipe_io_direction_t io_direction;  // specific I/O direction for a given drive, forward or reverse.
     int test_use1;
     int test_use2;
 
@@ -231,6 +243,7 @@ typedef struct
     time_t maxeta;  // The estimated runtime of the slowest device.
     u64 throughput;  // Total throughput.
     u64 errors;  // The combined number of errors of all processes.
+    u64 io_retries;  // The combined number of I/O retries of all processes.
     pthread_t* gui_thread;  // The ID of GUI thread.
 } nwipe_misc_thread_data_t;
 

@@ -669,8 +669,12 @@ int main( int argc, char** argv )
     /* Now set specific nwipe options */
     for( i = 0; i < nwipe_enumerated; i++ )
     {
-
-        if( nwipe_options.autonuke == 1 )
+        if( c1[i]->device_busy && !nwipe_options.force )
+        {
+            /* Do not allow to wipe in-use devices if --force is not set. */
+            c1[i]->select = NWIPE_SELECT_DISABLED_BUSY;
+        }
+        else if( nwipe_options.autonuke == 1 )
         {
             /* When the autonuke option is set, select all disks. */
             // TODO - partitions
@@ -818,6 +822,16 @@ int main( int argc, char** argv )
             /* A result buffer for the BLKGETSIZE64 ioctl. */
             u64 size64;
 
+            /* Should be filtered out earlier, but keep it as a last-minute seatbelt. */
+            if( c2[i]->device_busy && !nwipe_options.force )
+            {
+                nwipe_log( NWIPE_LOG_FATAL,
+                           "Device '%s' is IN USE but --force is not set, not wiping it.",
+                           c2[i]->device_name );
+                c2[i]->select = NWIPE_SELECT_DISABLED_BUSY;
+                continue;
+            }
+
             /* Initialise the spinner character index */
             c2[i]->spinner_idx = 0;
 
@@ -827,6 +841,9 @@ int main( int argc, char** argv )
 
             /* Initialise the wipe_status flag, -1 = wipe not yet started */
             c2[i]->wipe_status = -1;
+
+            /* Initialise the I/O direction */
+            c2[i]->io_direction = nwipe_options.io_direction;
 
             /* Open the file for reads and writes, honoring the configured I/O mode. */
             int open_flags = O_RDWR;
@@ -1287,15 +1304,14 @@ int main( int argc, char** argv )
             if( c2[i]->result != 0 || c2[i]->pass_errors != 0 || c2[i]->verify_errors != 0
                 || c2[i]->fsyncdata_errors != 0 )
             {
-                /* If the run_method ever returns anything other than zero then makesure there is at least one pass
-                 * error This is so that the log summary tables correctly show a failure when one occurs as it only
-                 * shows pass, verification and fdatasync errors. */
-                if( c2[i]->result != 0 )
+                /*
+                 * If the wipe finished with non-zero but did not internally increase
+                 * any error count, set at least one pass error for consistency between
+                 * the shown FAILURE/IOERROR status and the error count (also done in GUI).
+                 */
+                if( c2[i]->pass_errors == 0 && c2[i]->verify_errors == 0 && c2[i]->fsyncdata_errors == 0 )
                 {
-                    if( c2[i]->pass_errors == 0 )
-                    {
-                        c2[i]->pass_errors = 1;
-                    }
+                    c2[i]->pass_errors = 1;
                 }
 
                 nwipe_log( NWIPE_LOG_FATAL,
@@ -1315,7 +1331,7 @@ int main( int argc, char** argv )
     }
 
     /* Generate and send the drive status summary to the log */
-    nwipe_log_summary( c2, nwipe_selected );
+    nwipe_log_summary( &nwipe_thread_data_ptr, c2, nwipe_selected );
 
     /* Print a one line status message for the user */
     if( return_status == 0 || return_status == 1 )
@@ -1401,10 +1417,12 @@ void* signal_hand( void* ptr )
 
                 for( i = 0; i < nwipe_misc_thread_data->nwipe_selected; i++ )
                 {
-
                     if( c[i]->thread )
                     {
                         char* status = "";
+                        const char* op_prefix = c[i]->io_direction == NWIPE_IO_DIRECTION_FORWARD ? "" : "<";
+                        const char* op_suffix = c[i]->io_direction == NWIPE_IO_DIRECTION_FORWARD ? ">" : "";
+
                         switch( c[i]->pass_type )
                         {
                             case NWIPE_PASS_FINAL_BLANK:
@@ -1430,11 +1448,15 @@ void* signal_hand( void* ptr )
                         {
                             status = "[syncing]";
                         }
+                        if( c[i]->retry_status )
+                        {
+                            status = "[retrying]";
+                        }
 
                         convert_seconds_to_hours_minutes_seconds( c[i]->eta, &hours, &minutes, &seconds );
 
                         nwipe_log( NWIPE_LOG_INFO,
-                                   "%s: %05.2f%%, round %i of %i, pass %i of %i, eta %02i:%02i:%02i, %s",
+                                   "%s: %05.2f%%, round %i of %i, pass %i of %i, eta %02i:%02i:%02i, %s%s%s",
                                    c[i]->device_name,
                                    c[i]->round_percent,
                                    c[i]->round_working,
@@ -1444,7 +1466,9 @@ void* signal_hand( void* ptr )
                                    hours,
                                    minutes,
                                    seconds,
-                                   status );
+                                   status[0] != '\0' ? op_prefix : "",
+                                   status,
+                                   status[0] != '\0' ? op_suffix : "" );
                     }
                     else
                     {

@@ -1,4 +1,4 @@
-.TH NWIPE "8" "Dec 2025" "nwipe version 0.40" "User Commands"
+.TH NWIPE "5" "Feb 2026" "nwipe version 0.40" "User Commands"
 .SH NAME
 nwipe \- securely erase disks
 .SH SYNOPSIS
@@ -189,7 +189,7 @@ If \fIDIR\fR is set to \fInoPDF\fR no report PDF files are written.
 .TP
 \fB\-p\fR, \fB\-\-prng\fR=\fIMETHOD\fR
 The PRNG option (default: aes_ctr_prng).
-(mersenne|twister|isaac|isaac64|add_lagg_fibonacci_prng|xoroshiro256_prng|aes_ctr_prng)
+(mersenne|twister|isaac|isaac64|add_lagg_fibonacci_prng|xoroshiro256_prng|splitmix64|aes_ctr_prng|chacha20)
 .IP
 \fBaes_ctr_prng\fR uses the Linux kernel AF_ALG interface to AES\-CTR as a
 cryptographically strong stream generator. It is seeded via

@@ -116,7 +116,7 @@
 #define NWIPE_GUI_STATS_THROUGHPUT_X 1
 #define NWIPE_GUI_STATS_ERRORS_Y 5
 #define NWIPE_GUI_STATS_ERRORS_X 1
-#define NWIPE_GUI_STATS_TAB 16
+#define NWIPE_GUI_STATS_TAB 17
 
 /* Select window: width, height, x coordinate, y coordinate. */
 #define NWIPE_GUI_MAIN_W COLS
@@ -149,8 +149,8 @@ const char* stats_title = " Statistics ";
 
 /* Footer labels. */
 const char* main_window_footer =
-    "S=Start m=Method p=PRNG v=Verify t=path o=Benchmark r=Rounds b=Blanking Space=Select c=Config CTRL+C=Quit";
-const char* shredos_main_window_footer = "S=Start m=Method p=PRNG v=Verify t=path o=Benchmark r=Rounds b=Blanking "
+    "S=Start m=Method p=PRNG v=Verify r=Rounds b=Blanking d=Direction t=Path Space=Select c=Config CTRL+C=Quit";
+const char* shredos_main_window_footer = "S=Start m=Method p=PRNG v=Verify r=Rounds b=Blanking d=Direction t=Path"
                                          "Space=Select f=Font size c=Config CTRL+C=Quit";
 char** p_main_window_footer;
 const char* main_window_footer_warning_lower_case_s = "  WARNING: To start the wipe press SHIFT+S (uppercase S)  ";
@@ -180,6 +180,9 @@ const char* shredos_end_wipe_footer = "b=[Toggle dark\\blank\\blue screen] f=Fon
 const char* rounds_footer = "Left=Erase Esc=Cancel Ctrl+C=Quit";
 const char* selection_footer_text_entry = "Esc=Cancel Return=Submit Ctrl+C=Quit";
 const char* selection_footer_device_view = "ESC|Backspace=Back Ctrl+C=Quit";
+
+/* Keeps track of which PRNG category is selected */
+int prng_filter = 0; /* 0 = PRNG, 1 = CSPRNG */
 
 /* Keeps track of whether font is standard or double size (applicable to ShredOS only) */
 int toggle_font_flag = 0;
@@ -758,7 +761,9 @@ void nwipe_gui_benchmark_prng( void )
     extern nwipe_prng_t nwipe_isaac64;
     extern nwipe_prng_t nwipe_add_lagg_fibonacci_prng;
     extern nwipe_prng_t nwipe_xoroshiro256_prng;
+    extern nwipe_prng_t nwipe_splitmix64_prng;
     extern nwipe_prng_t nwipe_aes_ctr_prng;
+    extern nwipe_prng_t nwipe_chacha20_prng;
 
     extern int terminate_signal;
 
@@ -768,7 +773,9 @@ void nwipe_gui_benchmark_prng( void )
         &nwipe_isaac64,
         &nwipe_add_lagg_fibonacci_prng,
         &nwipe_xoroshiro256_prng,
+        &nwipe_splitmix64_prng,
         &nwipe_aes_ctr_prng,
+        &nwipe_chacha20_prng,
     };
 
     const int prng_count = (int) ( sizeof( prngs ) / sizeof( prngs[0] ) );
@@ -983,7 +990,7 @@ void nwipe_gui_create_stats_window()
     mvwprintw( stats_window, NWIPE_GUI_STATS_ETA_Y, NWIPE_GUI_STATS_ETA_X, "Remaining:     " );
     mvwprintw( stats_window, NWIPE_GUI_STATS_LOAD_Y, NWIPE_GUI_STATS_LOAD_X, "Load Averages: " );
     mvwprintw( stats_window, NWIPE_GUI_STATS_THROUGHPUT_Y, NWIPE_GUI_STATS_THROUGHPUT_X, "Throughput:    " );
-    mvwprintw( stats_window, NWIPE_GUI_STATS_ERRORS_Y, NWIPE_GUI_STATS_ERRORS_X, "Errors:        " );
+    mvwprintw( stats_window, NWIPE_GUI_STATS_ERRORS_Y, NWIPE_GUI_STATS_ERRORS_X, "Retries/Errors:" );
 
 } /* nwipe_gui_create_stats_window */
 
@@ -1237,6 +1244,15 @@ void nwipe_gui_select( int count, nwipe_context_t** c )
                         wprintw( main_window, "[????] %s ", "Unrecognized Device" );
                         break;
 
+                    case NWIPE_SELECT_DISABLED_BUSY:
+
+                        /* We can't wipe this element because it is in use and --force is not set. */
+                        wprintw( main_window,
+                                 "[----] %s %s ",
+                                 c[i + offset]->gui_device_name,
+                                 c[i + offset]->device_type_str );
+                        break;
+
                     default:
 
                         /* TODO: Handle the sanity error. */
@@ -1276,6 +1292,14 @@ void nwipe_gui_select( int count, nwipe_context_t** c )
                         wprintw( main_window, " " );
                         wprintw( main_window, "[HS? N/A]" );
                         break;
+                }
+
+                if( c[i + offset]->device_busy )
+                {
+                    wprintw( main_window, " " );
+                    wattron( main_window, COLOR_PAIR( 9 ) );
+                    wprintw( main_window, "[IN USE]" );
+                    wattroff( main_window, COLOR_PAIR( 9 ) );
                 }
 
                 /* print the drive model and serial number */
@@ -1589,8 +1613,8 @@ void nwipe_gui_select( int count, nwipe_context_t** c )
 
                     validkeyhit = 1;
 
-                    /* Run the PRNG dialog. */
-                    nwipe_gui_prng();
+                    /* Run the PRNG category dialog. */
+                    nwipe_gui_prng_category();
 
                     break;
 
@@ -1612,9 +1636,9 @@ void nwipe_gui_select( int count, nwipe_context_t** c )
                     /* Run the option dialog. */
                     nwipe_gui_verify();
                     break;
-                case 'o':
+                case 'd':
                     validkeyhit = 1;
-                    nwipe_gui_benchmark_prng();
+                    nwipe_gui_io_direction();
                     break;
 
                 case 't':
@@ -1854,8 +1878,9 @@ void nwipe_gui_options( void )
     mvwprintw( options_window,
                NWIPE_GUI_OPTIONS_METHOD_Y,
                NWIPE_GUI_OPTIONS_METHOD_X,
-               "Method:  %s",
-               nwipe_method_label( nwipe_options.method ) );
+               "Method:  %s%s",
+               nwipe_method_label( nwipe_options.method ),
+               nwipe_options.io_direction == NWIPE_IO_DIRECTION_FORWARD ? "" : " (R)" );
 
     mvwprintw( options_window, NWIPE_GUI_OPTIONS_VERIFY_Y, NWIPE_GUI_OPTIONS_VERIFY_X, "Verify:  " );
 
@@ -2038,6 +2063,209 @@ void nwipe_gui_rounds( void )
 
 } /* nwipe_guid_rounds */
 
+void nwipe_gui_io_direction( void )
+{
+    extern int terminate_signal;
+
+    const int tab1 = 2;
+    const int tab2 = 30;
+
+    int yy;
+    int keystroke;
+    int focus = nwipe_options.io_direction == NWIPE_IO_DIRECTION_FORWARD ? 0 : 1;
+
+    /* Update the footer window. */
+    werase( footer_window );
+    nwipe_gui_title( footer_window, selection_footer );
+    wrefresh( footer_window );
+
+    do
+    {
+        werase( main_window );
+
+        nwipe_gui_create_all_windows_on_terminal_resize( 0, selection_footer );
+
+        yy = 2;
+
+        mvwprintw( main_window, yy++, tab1, "  Start -> End (Forward)" );
+        mvwprintw( main_window, yy++, tab1, "  End -> Start (Reverse)" );
+        yy++;
+
+        mvwaddch( main_window, 2 + focus, tab1, ACS_RARROW );
+
+        yy = 2;
+
+        switch( focus )
+        {
+            case 0:
+                mvwprintw( main_window, yy++, tab2, "Wipes the device from the first block to the     " );
+                mvwprintw( main_window, yy++, tab2, "last. Fastest option as it writes with the spin  " );
+                mvwprintw( main_window, yy++, tab2, "direction of the disk. If a bad block is hit and " );
+                mvwprintw( main_window, yy++, tab2, "no-abort-on-block-errors is not set, reverse wipe" );
+                mvwprintw( main_window, yy++, tab2, "is triggered erasing up to the encountered block." );
+                yy++;
+                mvwprintw( main_window, yy++, tab2, "An alternative is to enable no-abort-on-bad-block" );
+                mvwprintw( main_window, yy++, tab2, "to skip over it, proceeding chosen I/O direction." );
+                break;
+
+            case 1:
+                mvwprintw( main_window, yy++, tab2, "Wipes the device from the last block to the      " );
+                mvwprintw( main_window, yy++, tab2, "first. May be slower as it writes against the    " );
+                mvwprintw( main_window, yy++, tab2, "spin direction. Useful if a bad block prevents a " );
+                mvwprintw( main_window, yy++, tab2, "forward wipe. If a bad block is hit and argument " );
+                mvwprintw( main_window, yy++, tab2, "no-abort-on-block-errors is not set, forward wipe" );
+                mvwprintw( main_window, yy++, tab2, "is triggered erasing up to the encountered block." );
+                yy++;
+                mvwprintw( main_window, yy++, tab2, "An alternative is to enable no-abort-on-bad-block" );
+                mvwprintw( main_window, yy++, tab2, "to skip over it, proceeding chosen I/O direction." );
+                break;
+        }
+
+        box( main_window, 0, 0 );
+        nwipe_gui_title( main_window, " I/O Direction " );
+        wrefresh( main_window );
+
+        /* Wait 250ms for input from getch, if nothing getch will then continue,
+         * This is necessary so that the while loop can be exited by the
+         * terminate_signal e.g.. the user pressing control-c to exit.
+         * Do not change this value, a higher value means the keys become
+         * sluggish, any slower and more time is spent unnecessarily looping
+         * which wastes CPU cycles.
+         */
+        timeout( 250 );
+        keystroke = getch();
+        timeout( -1 );
+
+        switch( keystroke )
+        {
+            case KEY_DOWN:
+            case 'j':
+            case 'J':
+                if( focus < 1 )
+                    focus = 1;
+                break;
+
+            case KEY_UP:
+            case 'k':
+            case 'K':
+                if( focus > 0 )
+                    focus = 0;
+                break;
+
+            case KEY_ENTER:
+            case ' ':
+            case 10:
+                if( focus == 0 )
+                    nwipe_options.io_direction = NWIPE_IO_DIRECTION_FORWARD;
+                else
+                    nwipe_options.io_direction = NWIPE_IO_DIRECTION_REVERSE;
+                return;
+
+            case KEY_BACKSPACE:
+            case KEY_BREAK:
+            case 27: /* ESC */
+                return;
+        }
+
+    } while( terminate_signal != 1 );
+} /* nwipe_gui_io_direction */
+
+void nwipe_gui_prng_category( void )
+{
+    extern int terminate_signal;
+
+    const int tab1 = 2;
+    const int tab2 = 30;
+
+    int focus = 0;
+    int yy;
+    int keystroke;
+
+    /* Update the footer window. */
+    werase( footer_window );
+    nwipe_gui_title( footer_window, selection_footer );
+    wrefresh( footer_window );
+
+    do
+    {
+        werase( main_window );
+
+        nwipe_gui_create_all_windows_on_terminal_resize( 0, selection_footer );
+
+        yy = 2;
+
+        mvwprintw( main_window, yy++, tab1, "  General Purpose PRNGs" );
+        mvwprintw( main_window, yy++, tab1, "  Secure/Auditable PRNGs" );
+        yy++;
+
+        mvwaddch( main_window, 2 + focus, tab1, ACS_RARROW );
+
+        yy = 2;
+
+        switch( focus )
+        {
+            case 0:
+                mvwprintw( main_window, yy++, tab2, "PRNGs that favor speed over security.            " );
+                mvwprintw( main_window, yy++, tab2, "Suitable for general purpose data wiping.        " );
+                mvwprintw( main_window, yy++, tab2, "These are well-tested algorithms but are not     " );
+                mvwprintw( main_window, yy++, tab2, "designed to resist any cryptographic attacks.    " );
+                break;
+
+            case 1:
+                mvwprintw( main_window, yy++, tab2, "PRNGs that meet cryptographic standards for the  " );
+                mvwprintw( main_window, yy++, tab2, "highest levels of security in data sanitisation. " );
+                mvwprintw( main_window, yy++, tab2, "Recommended when strict compliance with security " );
+                mvwprintw( main_window, yy++, tab2, "standards or auditability outweighs performance. " );
+                break;
+        }
+
+        box( main_window, 0, 0 );
+        nwipe_gui_title( main_window, " Pseudorandom Number Generator " );
+        wrefresh( main_window );
+
+        /* Wait 250ms for input from getch, if nothing getch will then continue,
+         * This is necessary so that the while loop can be exited by the
+         * terminate_signal e.g.. the user pressing control-c to exit.
+         * Do not change this value, a higher value means the keys become
+         * sluggish, any slower and more time is spent unnecessarily looping
+         * which wastes CPU cycles.
+         */
+        timeout( 250 );
+        keystroke = getch();
+        timeout( -1 );
+
+        switch( keystroke )
+        {
+            case KEY_DOWN:
+            case 'j':
+            case 'J':
+                if( focus < 1 )
+                    focus = 1;
+                break;
+
+            case KEY_UP:
+            case 'k':
+            case 'K':
+                if( focus > 0 )
+                    focus = 0;
+                break;
+
+            case KEY_ENTER:
+            case ' ':
+            case 10:
+                prng_filter = focus;
+                nwipe_gui_prng();
+                return;
+
+            case KEY_BACKSPACE:
+            case KEY_BREAK:
+            case 27: /* ESC */
+                return;
+        }
+
+    } while( terminate_signal != 1 );
+} /* nwipe_gui_prng_category */
+
 void nwipe_gui_prng( void )
 {
     /**
@@ -2052,20 +2280,27 @@ void nwipe_gui_prng( void )
     extern nwipe_prng_t nwipe_isaac;
     extern nwipe_prng_t nwipe_isaac64;
     extern nwipe_prng_t nwipe_xoroshiro256_prng;
+    extern nwipe_prng_t nwipe_splitmix64_prng;
     extern nwipe_prng_t nwipe_add_lagg_fibonacci_prng;
     extern nwipe_prng_t nwipe_aes_ctr_prng;
+    extern nwipe_prng_t nwipe_chacha20_prng;
 
     extern int terminate_signal;
 
     /* The number of implemented PRNGs. */
+    const nwipe_prng_t* prngs[8]; /* 8 PRNGs */
+
+    /* AES-NI */
     const int aes_ctr_available = has_aes_ni();
-    const int count = 6;
 
     /* The first tabstop. */
     const int tab1 = 2;
 
     /* The second tabstop. */
     const int tab2 = 30;
+
+    /* Set the PRNG counter */
+    int count = 0;
 
     /* Set the initial focus. */
     int focus = 0;
@@ -2081,30 +2316,31 @@ void nwipe_gui_prng( void )
     nwipe_gui_title( footer_window, selection_footer_prng );
     wrefresh( footer_window );
 
-    if( nwipe_options.prng == &nwipe_twister )
+    if( prng_filter == 0 ) /* General purpose */
     {
-        focus = 0;
+        prngs[count++] = &nwipe_twister;
+        prngs[count++] = &nwipe_add_lagg_fibonacci_prng;
+        prngs[count++] = &nwipe_xoroshiro256_prng;
+        prngs[count++] = &nwipe_splitmix64_prng;
     }
-    if( nwipe_options.prng == &nwipe_isaac )
+    else /* Cryptographically secure */
     {
-        focus = 1;
+        prngs[count++] = &nwipe_aes_ctr_prng;
+        prngs[count++] = &nwipe_chacha20_prng;
+        prngs[count++] = &nwipe_isaac;
+        prngs[count++] = &nwipe_isaac64;
     }
-    if( nwipe_options.prng == &nwipe_isaac64 )
+
+    /* Set initial focus to currently selected PRNG if it's in this category */
+    for( int i = 0; i < count; i++ )
     {
-        focus = 2;
+        if( nwipe_options.prng == prngs[i] )
+        {
+            focus = i;
+            break;
+        }
     }
-    if( nwipe_options.prng == &nwipe_add_lagg_fibonacci_prng )
-    {
-        focus = 3;
-    }
-    if( nwipe_options.prng == &nwipe_xoroshiro256_prng )
-    {
-        focus = 4;
-    }
-    if( nwipe_options.prng == &nwipe_aes_ctr_prng )
-    {
-        focus = 5;
-    }
+
     do
     {
         /* Clear the main window. */
@@ -2113,151 +2349,151 @@ void nwipe_gui_prng( void )
         nwipe_gui_create_all_windows_on_terminal_resize( 0, selection_footer_prng );
 
         /* Initialize the working row. */
-        yy = 3;
+        yy = 2;
 
         /* Print the options. */
-        mvwprintw( main_window, yy++, tab1, "  %s", nwipe_twister.label );
-        mvwprintw( main_window, yy++, tab1, "  %s", nwipe_isaac.label );
-        mvwprintw( main_window, yy++, tab1, "  %s", nwipe_isaac64.label );
-        mvwprintw( main_window, yy++, tab1, "  %s", nwipe_add_lagg_fibonacci_prng.label );
-        mvwprintw( main_window, yy++, tab1, "  %s", nwipe_xoroshiro256_prng.label );
-        /* AES-CTR: visually indicate “not available” if no AES-NI */
-        if( aes_ctr_available )
+        for( int i = 0; i < count; i++ )
         {
-            mvwprintw( main_window, yy++, tab1, "  %s", nwipe_aes_ctr_prng.label );
-        }
-        else
-        {
-            mvwprintw( main_window, yy++, tab1, "  %s (N/A)", nwipe_aes_ctr_prng.label );
+            if( prngs[i] == &nwipe_aes_ctr_prng && !aes_ctr_available )
+            {
+                mvwprintw( main_window, yy++, tab1, "  %s (N/A)", prngs[i]->label );
+            }
+            else
+            {
+                mvwprintw( main_window, yy++, tab1, "  %s", prngs[i]->label );
+            }
         }
         yy++;
 
         /* Print the cursor. */
-        mvwaddch( main_window, 3 + focus, tab1, ACS_RARROW );
+        mvwaddch( main_window, 2 + focus, tab1, ACS_RARROW );
 
         yy = 2;  // Start line for all help text
-        switch( focus )
+
+        /* The focused PRNG */
+        const nwipe_prng_t* focused_prng = prngs[focus];
+
+        if( focused_prng == &nwipe_twister )
         {
-            case 0:
-
-                mvwprintw( main_window, 2, tab2, "The Mersenne Twister, by Makoto Matsumoto and    " );
-                mvwprintw( main_window, 3, tab2, "Takuji Nishimura, is a generalized feedback shift" );
-                mvwprintw( main_window, 4, tab2, "register PRNG that is uniform and equidistributed" );
-                mvwprintw( main_window, 5, tab2, "in 623-dimensions with a proven period of        " );
-                mvwprintw( main_window, 6, tab2, "2^19937-1." );
-                mvwprintw( main_window, 7, tab2, "                                                 " );
-                mvwprintw( main_window, 8, tab2, "This implementation passes the Marsaglia Diehard " );
-                mvwprintw( main_window, 9, tab2, "test suite." );
-                mvwprintw( main_window, 10, tab2, "                                                 " );
-                mvwprintw( main_window, 14, tab1, "Fastest PRNG for you hardware? type o to find out" );
-                break;
-
-            case 1:
-
-                mvwprintw( main_window, 2, tab2, "ISAAC, by Bob Jenkins, is a PRNG derived from RC4" );
-                mvwprintw( main_window, 3, tab2, "RC4 with a minimum period of 2^40 and an expected" );
-                mvwprintw( main_window, 4, tab2, "period of 2^8295. It is difficult to recover the " );
-                mvwprintw( main_window, 5, tab2, "initial PRNG state by cryptanalysis of the ISAAC " );
-                mvwprintw( main_window, 6, tab2, "stream.                                          " );
-                mvwprintw( main_window, 7, tab2, "                                                 " );
-                mvwprintw( main_window, 8, tab2, "Performs best on a 32-bit CPU. Use ISAAC-64 if   " );
-                mvwprintw( main_window, 9, tab2, "this system has a 64-bit CPU.  " );
-                mvwprintw( main_window, 14, tab1, "Fastest PRNG for you hardware? type o to find out" );
-                break;
-
-            case 2:
-
-                mvwprintw( main_window, 2, tab2, "ISAAC-64, by Bob Jenkins, is like 32-bit ISAAC,  " );
-                mvwprintw( main_window, 3, tab2, "but with a minimum period of 2^77 and an expected" );
-                mvwprintw( main_window, 4, tab2, "period of 2^16583. It is difficult to recover the" );
-                mvwprintw( main_window, 5, tab2, "initial PRNG state by cryptanalysis of the       " );
-                mvwprintw( main_window, 5, tab2, "ISAAC-64 stream.                                 " );
-                mvwprintw( main_window, 6, tab2, "                                                 " );
-                mvwprintw( main_window, 7, tab2, "Performs best on a 64-bit CPU. Use ISAAC if this " );
-                mvwprintw( main_window, 8, tab2, "system has a 32-bit CPU.                         " );
-                mvwprintw( main_window, 14, tab1, "Fastest PRNG for you hardware? type o to find out" );
-                break;
-
-            case 3:
-
-                mvwprintw( main_window, yy++, tab2, "ALFGs use additive lagged Fibonacci sequences,   " );
-                mvwprintw( main_window, yy++, tab2, "offering good speed and randomness but low       " );
-                mvwprintw( main_window, yy++, tab2, "security, making them unsuitable for cryptography" );
-                mvwprintw( main_window, yy++, tab2, "Their period depends on lag and arithmetic       " );
-                mvwprintw( main_window, yy++, tab2, "choices, often reaching 2^N or higher, where N   " );
-                mvwprintw( main_window, yy++, tab2, "is the bit length of the states.                 " );
-                mvwprintw( main_window, yy++, tab2, "                                                 " );
-                mvwprintw( main_window, yy++, tab2, "Efficient on CPUs of any bit width, particularly " );
-                mvwprintw( main_window, yy++, tab2, "suited for non-cryptographic applications        " );
-                mvwprintw( main_window, yy++, tab2, "requiring long sequences with a good speed and   " );
-                mvwprintw( main_window, yy++, tab2, "randomness trade-off.                            " );
-                mvwprintw( main_window, 14, tab1, "Fastest PRNG for you hardware? type o to find out" );
-                break;
-
-            case 4:
-
-                mvwprintw( main_window, yy++, tab2, "XORoshiro256 was designed by David Blackman      " );
-                mvwprintw( main_window, yy++, tab2, "and Sebastiano Vigna for 128 bits. adapted to 256" );
-                mvwprintw( main_window, yy++, tab2, "bits by Fabian Druschke, enhancing its capability" );
-                mvwprintw( main_window, yy++, tab2, "for fast, high-quality pseudo-random numbers     " );
-                mvwprintw( main_window, yy++, tab2, "with a state size of 256 bits and extremely long " );
-                mvwprintw( main_window, yy++, tab2, "period of 2^256-1 without sacrificing performance" );
-                mvwprintw( main_window, yy++, tab2, "                                                 " );
-                mvwprintw( main_window, yy++, tab2, "The simple arithmetic operations, shifts, XORs   " );
-                mvwprintw( main_window, yy++, tab2, "and rotations ensure low computational complexity" );
-                mvwprintw( main_window, yy++, tab2, "Combined with the 256 bit adaption, it provides  " );
-                mvwprintw( main_window, yy++, tab2, "efficient use especially for legacy systems " );
-                mvwprintw( main_window, 14, tab1, "Fastest PRNG for you hardware? type o to find out" );
-                break;
-            case 5: {
-                extern int has_aes_ni( void );
-                const int aes_ctr_available = has_aes_ni();
-
-                if( aes_ctr_available )
-                {
-                    yy = 2;
-                    mvwprintw( main_window, yy++, tab2, "AES-256 in Counter Mode (CTR), implemented   " );
-                    mvwprintw( main_window, yy++, tab2, "by Fabian Druschke using the Linux kernel's  " );
-                    mvwprintw( main_window, yy++, tab2, "AF_ALG cryptographic API for efficient pseudo" );
-                    mvwprintw( main_window, yy++, tab2, "random data generation. Hardware acceleration" );
-                    mvwprintw( main_window, yy++, tab2, "via AES-NI, makes AES-256 CTR ideal for      " );
-                    mvwprintw( main_window, yy++, tab2, "secure and fast data wiping in nwipe.  " );
-                    mvwprintw( main_window, yy++, tab2, "                                             " );
-                    mvwprintw( main_window, yy++, tab2, "Compliant with NIST SP 800-38A, it is a      " );
-                    mvwprintw( main_window, yy++, tab2, "global standard for encryption. Designed for " );
-
-                    mvwprintw( main_window, yy++, tab2, "64-bit Linux systems with kernel CryptoAPI.  " );
-                    mvwprintw( main_window, 14, tab1, "Fastest PRNG for you hardware? type o to find out" );
-                }
-                else
-                {
-                    yy = 2;
-                    /* Dimmed, shortened explanation when AES-NI is not available. */
-                    wattron( main_window, A_DIM );
-
-                    mvwprintw( main_window, yy++, tab2, "AES-256 in Counter Mode (CTR) PRNG is NOT    " );
-                    mvwprintw( main_window, yy++, tab2, "available on this system. This PRNG uses     " );
-                    mvwprintw( main_window, yy++, tab2, "AES-NI acceleration via the Linux kernel     " );
-                    mvwprintw( main_window, yy++, tab2, "CryptoAPI. It is not available because your  " );
-                    mvwprintw( main_window, yy++, tab2, "CPU does not support the required AES-NI     " );
-                    mvwprintw( main_window, yy++, tab2, "instruction set. You can still use all other " );
-                    mvwprintw( main_window, yy++, tab2, "                                             " );
-                    mvwprintw( main_window, yy++, tab2, "PRNGs (e.g. xoroshiro-256, ISAAC, MT).       " );
-
-                    wattroff( main_window, A_DIM );
-
-                    mvwprintw( main_window, 14, tab1, "Fastest PRNG for you hardware? type o to find out" );
-                }
-
-                break;
+            mvwprintw( main_window, yy++, tab2, "The Mersenne Twister, by Makoto Matsumoto and    " );
+            mvwprintw( main_window, yy++, tab2, "Takuji Nishimura, is a generalized feedback shift" );
+            mvwprintw( main_window, yy++, tab2, "register PRNG that is uniform and equidistributed" );
+            mvwprintw( main_window, yy++, tab2, "in 623-dimensions with a proven period of        " );
+            mvwprintw( main_window, yy++, tab2, "2^19937-1." );
+            mvwprintw( main_window, yy++, tab2, "                                                 " );
+            mvwprintw( main_window, yy++, tab2, "This implementation passes the Marsaglia Diehard " );
+            mvwprintw( main_window, yy++, tab2, "test suite." );
+        }
+        else if( focused_prng == &nwipe_isaac )
+        {
+            mvwprintw( main_window, yy++, tab2, "ISAAC, by Bob Jenkins, is a PRNG derived from RC4" );
+            mvwprintw( main_window, yy++, tab2, "RC4 with a minimum period of 2^40 and an expected" );
+            mvwprintw( main_window, yy++, tab2, "period of 2^8295. It is difficult to recover the " );
+            mvwprintw( main_window, yy++, tab2, "initial PRNG state by cryptanalysis of the ISAAC " );
+            mvwprintw( main_window, yy++, tab2, "stream.                                          " );
+            mvwprintw( main_window, yy++, tab2, "                                                 " );
+            mvwprintw( main_window, yy++, tab2, "Performs best on a 32-bit CPU. Use ISAAC-64 if   " );
+            mvwprintw( main_window, yy++, tab2, "this system has a 64-bit CPU.  " );
+        }
+        else if( focused_prng == &nwipe_isaac64 )
+        {
+            mvwprintw( main_window, yy++, tab2, "ISAAC-64, by Bob Jenkins, is like 32-bit ISAAC,  " );
+            mvwprintw( main_window, yy++, tab2, "but with a minimum period of 2^77 and an expected" );
+            mvwprintw( main_window, yy++, tab2, "period of 2^16583. It is difficult to recover the" );
+            mvwprintw( main_window, yy++, tab2, "initial PRNG state by cryptanalysis of the       " );
+            mvwprintw( main_window, yy++, tab2, "ISAAC-64 stream.                                 " );
+            mvwprintw( main_window, yy++, tab2, "                                                 " );
+            mvwprintw( main_window, yy++, tab2, "Performs best on a 64-bit CPU. Use ISAAC if this " );
+            mvwprintw( main_window, yy++, tab2, "system has a 32-bit CPU.                         " );
+        }
+        else if( focused_prng == &nwipe_add_lagg_fibonacci_prng )
+        {
+            mvwprintw( main_window, yy++, tab2, "ALFGs use additive lagged Fibonacci sequences,   " );
+            mvwprintw( main_window, yy++, tab2, "offering good speed and randomness but low       " );
+            mvwprintw( main_window, yy++, tab2, "security, making them unsuitable for cryptography" );
+            mvwprintw( main_window, yy++, tab2, "Their period depends on lag and arithmetic       " );
+            mvwprintw( main_window, yy++, tab2, "choices, often reaching 2^N or higher, where N   " );
+            mvwprintw( main_window, yy++, tab2, "is the bit length of the states.                 " );
+            mvwprintw( main_window, yy++, tab2, "                                                 " );
+            mvwprintw( main_window, yy++, tab2, "Efficient on CPUs of any bit width, particularly " );
+            mvwprintw( main_window, yy++, tab2, "suited for non-cryptographic applications        " );
+            mvwprintw( main_window, yy++, tab2, "requiring long sequences with a good speed and   " );
+            mvwprintw( main_window, yy++, tab2, "randomness trade-off.                            " );
+        }
+        else if( focused_prng == &nwipe_xoroshiro256_prng )
+        {
+            mvwprintw( main_window, yy++, tab2, "XORoshiro256 was designed by David Blackman      " );
+            mvwprintw( main_window, yy++, tab2, "and Sebastiano Vigna for 128 bits. adapted to 256" );
+            mvwprintw( main_window, yy++, tab2, "bits by Fabian Druschke, enhancing its capability" );
+            mvwprintw( main_window, yy++, tab2, "for fast, high-quality pseudo-random numbers     " );
+            mvwprintw( main_window, yy++, tab2, "with a state size of 256 bits and extremely long " );
+            mvwprintw( main_window, yy++, tab2, "period of 2^256-1 without sacrificing performance" );
+            mvwprintw( main_window, yy++, tab2, "                                                 " );
+            mvwprintw( main_window, yy++, tab2, "The simple arithmetic operations, shifts, XORs   " );
+            mvwprintw( main_window, yy++, tab2, "and rotations ensure low computational complexity" );
+            mvwprintw( main_window, yy++, tab2, "Combined with the 256 bit adaption, it provides  " );
+            mvwprintw( main_window, yy++, tab2, "efficient use especially for legacy systems " );
+        }
+        else if( focused_prng == &nwipe_splitmix64_prng )
+        {
+            mvwprintw( main_window, yy++, tab2, "SplitMix64 is a fast non-cryptographic PRNG by   " );
+            mvwprintw( main_window, yy++, tab2, "Steele and Lea, adaptions by Sebastiano Vigna.   " );
+            mvwprintw( main_window, yy++, tab2, "                                                 " );
+            mvwprintw( main_window, yy++, tab2, "Uses 64-bit arithmetic and shifts; optimized for " );
+            mvwprintw( main_window, yy++, tab2, "high-speed generation on 64-bit architectures.   " );
+        }
+        else if( focused_prng == &nwipe_aes_ctr_prng )
+        {
+            if( aes_ctr_available )
+            {
+                mvwprintw( main_window, yy++, tab2, "AES-256 in Counter Mode (CTR), implemented   " );
+                mvwprintw( main_window, yy++, tab2, "by Fabian Druschke using the Linux kernel's  " );
+                mvwprintw( main_window, yy++, tab2, "AF_ALG cryptographic API for efficient pseudo" );
+                mvwprintw( main_window, yy++, tab2, "random data generation. Hardware acceleration" );
+                mvwprintw( main_window, yy++, tab2, "via AES-NI, makes AES-256 CTR ideal for      " );
+                mvwprintw( main_window, yy++, tab2, "secure and fast data wiping in nwipe.  " );
+                mvwprintw( main_window, yy++, tab2, "                                             " );
+                mvwprintw( main_window, yy++, tab2, "Compliant with NIST SP 800-38A, it is a      " );
+                mvwprintw( main_window, yy++, tab2, "global standard for encryption. Designed for " );
+                mvwprintw( main_window, yy++, tab2, "64-bit Linux systems with kernel CryptoAPI.  " );
+            }
+            else
+            {
+                wattron( main_window, A_DIM );
+                mvwprintw( main_window, yy++, tab2, "AES-256 in Counter Mode (CTR) PRNG is NOT    " );
+                mvwprintw( main_window, yy++, tab2, "available on this system. This PRNG uses     " );
+                mvwprintw( main_window, yy++, tab2, "AES-NI acceleration via the Linux kernel     " );
+                mvwprintw( main_window, yy++, tab2, "CryptoAPI. It is not available because your  " );
+                mvwprintw( main_window, yy++, tab2, "CPU does not support the required AES-NI     " );
+                mvwprintw( main_window, yy++, tab2, "instruction set. You can still use all       " );
+                mvwprintw( main_window, yy++, tab2, "other PRNGs (e.g. xoroshiro-256, ISAAC, MT). " );
+                wattroff( main_window, A_DIM );
             }
         }
+        else if( focused_prng == &nwipe_chacha20_prng )
+        {
+            mvwprintw( main_window, yy++, tab2, "ChaCha20 is a stream cipher by Daniel Bernstein  " );
+            mvwprintw( main_window, yy++, tab2, "used in TLS, SSH and OS kernel PRNGs worldwide.  " );
+            mvwprintw( main_window, yy++, tab2, "                                                 " );
+            mvwprintw( main_window, yy++, tab2, "ChaCha20 is a cryptographically secure PRNG and  " );
+            mvwprintw( main_window, yy++, tab2, "a good choice when security matters more than    " );
+            mvwprintw( main_window, yy++, tab2, "raw throughput. No special hardware required.    " );
+            mvwprintw( main_window, yy++, tab2, "                                                 " );
+            mvwprintw( main_window, yy++, tab2, "Self-testing, simple and auditable by design.    " );
+            mvwprintw( main_window, yy++, tab2, "Verified against official RFC 7539 test vectors. " );
+        }
+
+        yy++; /* One line spacing */
+        mvwprintw( main_window, yy++, tab2, "Press 'o' for the fastest PRNG for your hardware!" );
 
         /* Add a border. */
         box( main_window, 0, 0 );
 
         /* Add a title. */
-        nwipe_gui_title( main_window, " Pseudo Random Number Generator " );
+        if( prng_filter == 0 )
+            nwipe_gui_title( main_window, " General Purpose PRNGs " );
+        else
+            nwipe_gui_title( main_window, " Secure/Auditable PRNGs " );
 
         /* Refresh the window. */
         wrefresh( main_window );
@@ -2298,58 +2534,16 @@ void nwipe_gui_prng( void )
             case KEY_ENTER:
             case ' ':
             case 10: {
-                int selection_made = 0;
+                const nwipe_prng_t* selected = prngs[focus];
 
-                if( focus == 0 )
+                if( selected == &nwipe_aes_ctr_prng && !aes_ctr_available )
                 {
-                    nwipe_options.prng = &nwipe_twister;
-                    selection_made = 1;
-                }
-                else if( focus == 1 )
-                {
-                    nwipe_options.prng = &nwipe_isaac;
-                    selection_made = 1;
-                }
-                else if( focus == 2 )
-                {
-                    nwipe_options.prng = &nwipe_isaac64;
-                    selection_made = 1;
-                }
-                else if( focus == 3 )
-                {
-                    nwipe_options.prng = &nwipe_add_lagg_fibonacci_prng;
-                    selection_made = 1;
-                }
-                else if( focus == 4 )
-                {
-                    nwipe_options.prng = &nwipe_xoroshiro256_prng;
-                    selection_made = 1;
-                }
-                else if( focus == 5 )
-                {
-                    if( aes_ctr_available )
-                    {
-                        /* AES-CTR selectable only when AES-NI is available. */
-                        nwipe_options.prng = &nwipe_aes_ctr_prng;
-                        selection_made = 1;
-                    }
-                    else
-                    {
-                        /* Visible but disabled: do not change selection and
-                         * do not close the dialog. Give feedback only. */
-                        beep();
-                        selection_made = 0;
-                    }
+                    beep();
+                    break;
                 }
 
-                if( selection_made )
-                {
-                    /* Close the dialog only on a valid selection. */
-                    return;
-                }
-
-                /* No valid selection (e.g. AES-CTR without AES-NI): stay in dialog. */
-                break;
+                nwipe_options.prng = (nwipe_prng_t*) selected;
+                return;
             }
 
             case 'o':
@@ -2359,6 +2553,7 @@ void nwipe_gui_prng( void )
 
             case KEY_BACKSPACE:
             case KEY_BREAK:
+            case 27: /* ESC */
 
                 return;
 
@@ -3288,7 +3483,7 @@ void nwipe_gui_config( void )
     extern int terminate_signal;
 
     /* Number of entries in the configuration menu. Includes blank lines */
-    const int total_menu_entries = 9;
+    const int total_menu_entries = 11;
 
     /* The first tabstop. */
     const int tab1 = 2;
@@ -3326,6 +3521,7 @@ void nwipe_gui_config( void )
         mvwprintw( main_window, yy++, tab1, "  %s", "PDF Report - Select Customer  " );
         mvwprintw( main_window, yy++, tab1, "  %s", "PDF Report - Add Customer     " );
         mvwprintw( main_window, yy++, tab1, "  %s", "PDF Report - Delete Customer  " );
+        mvwprintw( main_window, yy++, tab1, "  %s", "PDF Report - Host Info Display " );
         mvwprintw( main_window, yy++, tab1, "  %s", "PDF Report - User defined tag " );
         mvwprintw( main_window, yy++, tab1, "  %s", "PDF Report - Preview Details  " );
         mvwprintw( main_window, yy++, tab1, "  %s", "PDF Report - Preview at Start " );
@@ -3355,7 +3551,7 @@ void nwipe_gui_config( void )
 
             case 1:
 
-                mvwprintw( main_window, 2, tab2, "PDF Report - Edit Organisation         " );
+                mvwprintw( main_window, 2, tab2, "PDF - Edit Organisation         " );
 
                 mvwprintw( main_window, 4, tab2, "This option allows you to edit details " );
                 mvwprintw( main_window, 5, tab2, "of the organisation that is performing " );
@@ -3365,7 +3561,7 @@ void nwipe_gui_config( void )
                 break;
 
             case 2:
-                mvwprintw( main_window, 2, tab2, "PDF Report - Select Customer           " );
+                mvwprintw( main_window, 2, tab2, "PDF - Select Customer           " );
 
                 mvwprintw( main_window, 4, tab2, "Allows selection of a customer as      " );
                 mvwprintw( main_window, 5, tab2, "displayed on the PDF report. Customer  " );
@@ -3379,7 +3575,7 @@ void nwipe_gui_config( void )
 
             case 3:
 
-                mvwprintw( main_window, 2, tab2, "PDF Report - Add Customer              " );
+                mvwprintw( main_window, 2, tab2, "PDF - Add Customer              " );
 
                 mvwprintw( main_window, 4, tab2, "This option allows you to add a new    " );
                 mvwprintw( main_window, 5, tab2, "customer. A customer can be optionally " );
@@ -3394,7 +3590,7 @@ void nwipe_gui_config( void )
 
             case 4:
 
-                mvwprintw( main_window, 2, tab2, "PDF Report - Delete Customer           " );
+                mvwprintw( main_window, 2, tab2, "PDF - Delete Customer           " );
 
                 mvwprintw( main_window, 4, tab2, "This option allows you to delete a     " );
                 mvwprintw( main_window, 5, tab2, "customer. A customer can be optionally " );
@@ -3409,7 +3605,23 @@ void nwipe_gui_config( void )
 
             case 5:
 
-                mvwprintw( main_window, 2, tab2, "PDF Report - Add user defined tag to PDF" );
+                mvwprintw( main_window, 2, tab2, "PDF - Toggle Host Information Visibility" );
+
+                mvwprintw( main_window, 4, tab2, "Controls the display of the host's UUID" );
+                mvwprintw( main_window, 5, tab2, "and serial number on the generated PDF." );
+                if( nwipe_options.PDF_toggle_host_info )
+                {
+                    mvwprintw( main_window, 7, tab2, "Host Visibility = ENABLED" );
+                }
+                else
+                {
+                    mvwprintw( main_window, 7, tab2, "Host Visibility = DISABLED" );
+                }
+                break;
+
+            case 6:
+
+                mvwprintw( main_window, 2, tab2, "PDF - Add user defined tag to PDF" );
 
                 mvwprintw( main_window, 4, tab2, "The report supports user-defined text, " );
                 mvwprintw( main_window, 5, tab2, "which may be used to identify the host " );
@@ -3417,7 +3629,7 @@ void nwipe_gui_config( void )
                 mvwprintw( main_window, 7, tab2, "at the user's discretion.              " );
                 break;
 
-            case 6:
+            case 7:
 
                 mvwprintw( main_window, 2, tab2, "PDF Report - Preview Organisation,     " );
                 mvwprintw( main_window, 3, tab2, "Customer and Date/Time details         " );
@@ -3428,7 +3640,7 @@ void nwipe_gui_config( void )
                 mvwprintw( main_window, 8, tab2, "the PDF report.                        " );
                 break;
 
-            case 7:
+            case 8:
 
                 if( nwipe_options.PDF_preview_details )
                 {
@@ -3447,7 +3659,7 @@ void nwipe_gui_config( void )
                 mvwprintw( main_window, 10, tab2, "drive selection and starting the erase." );
                 break;
 
-            case 9:
+            case 10:
 
                 mvwprintw( main_window, 2, tab2, "Set System Date & Time                 " );
 
@@ -3485,7 +3697,7 @@ void nwipe_gui_config( void )
 
                 if( focus < total_menu_entries - 1 )
                 {
-                    if( focus == 7 )
+                    if( focus == 8 )
                     {
                         focus += 2; /* mind the gaps */
                     }
@@ -3502,7 +3714,7 @@ void nwipe_gui_config( void )
 
                 if( focus > 0 )
                 {
-                    if( focus == 9 )
+                    if( focus == 10 )
                     {
                         focus -= 2; /* mind the gaps */
                     }
@@ -3561,14 +3773,32 @@ void nwipe_gui_config( void )
                     break;
 
                 case 5:
-                    nwipe_gui_user_defined_tag();
+                    /* Toggle on pressing ENTER key */
+                    if( nwipe_options.PDF_toggle_host_info == 0 )
+                    {
+                        nwipe_options.PDF_toggle_host_info = 1;
+
+                        /* write the setting to nwipe.conf */
+                        nwipe_conf_update_setting( "PDF_Certificate.PDF_Host_Visibility", "ENABLED" );
+                    }
+                    else
+                    {
+                        nwipe_options.PDF_toggle_host_info = 0;
+
+                        /* write the setting to nwipe.conf */
+                        nwipe_conf_update_setting( "PDF_Certificate.PDF_Host_Visibility", "DISABLED" );
+                    }
                     break;
 
                 case 6:
-                    nwipe_gui_preview_org_customer( SHOWING_IN_CONFIG_MENUS );
+                    nwipe_gui_user_defined_tag();
                     break;
 
                 case 7:
+                    nwipe_gui_preview_org_customer( SHOWING_IN_CONFIG_MENUS );
+                    break;
+
+                case 8:
                     /* Toggle on pressing ENTER key */
                     if( nwipe_options.PDF_preview_details == 0 )
                     {
@@ -3586,7 +3816,7 @@ void nwipe_gui_config( void )
                     }
                     break;
 
-                case 9:
+                case 10:
                     nwipe_gui_set_date_time();
                     break;
             }
@@ -7281,6 +7511,9 @@ void* nwipe_gui_status( void* ptr )
     /* The combined number of errors of all processes. */
     nwipe_misc_thread_data->errors = 0;
 
+    /* The combined number of I/O retries of all processes. */
+    nwipe_misc_thread_data->io_retries = 0;
+
     /* Time values. */
     int nwipe_hh;
     int nwipe_mm;
@@ -7611,17 +7844,23 @@ void* nwipe_gui_status( void* ptr )
                     } /* child running */
                     else
                     {
-                        if( c[i]->result == 0 )
+                        if( c[i]->result == 0 ) /* Success */
                         {
                             mvwprintw( main_window, yy++, 4, "[%05.2f%% complete, SUCCESS! ", c[i]->round_percent );
                         }
-                        else if( c[i]->signal )
+                        else if( c[i]->signal ) /* Signal received */
                         {
                             wattron( main_window, COLOR_PAIR( 9 ) );
                             mvwprintw( main_window, yy++, 4, "(>>> FAILURE! <<<, signal %i) ", c[i]->signal );
                             wattroff( main_window, COLOR_PAIR( 9 ) );
                         }
-                        else
+                        else if( c[i]->result == 1 ) /* Non-fatal errors */
+                        {
+                            wattron( main_window, COLOR_PAIR( 9 ) );
+                            mvwprintw( main_window, yy++, 4, "(>>> FAILURE! <<<) " );
+                            wattroff( main_window, COLOR_PAIR( 9 ) );
+                        }
+                        else /* Fatal error */
                         {
                             wattron( main_window, COLOR_PAIR( 9 ) );
                             mvwprintw( main_window, yy++, 4, "(>>> IOERROR! <<<, code %i) ", c[i]->result );
@@ -7630,45 +7869,57 @@ void* nwipe_gui_status( void* ptr )
 
                     } /* child returned */
 
-                    if( c[i]->verify_errors )
+                    if( c[i]->io_retries )
                     {
-                        wprintw( main_window, "[verr:%llu] ", c[i]->verify_errors );
+                        wprintw( main_window, "[retr:%llu] ", c[i]->io_retries );
                     }
                     if( c[i]->pass_errors )
                     {
                         wprintw( main_window, "[perr:%llu] ", c[i]->pass_errors );
                     }
+                    if( c[i]->verify_errors )
+                    {
+                        wprintw( main_window, "[verr:%llu] ", c[i]->verify_errors );
+                    }
+                    if( c[i]->fsyncdata_errors )
+                    {
+                        wprintw( main_window, "[serr:%llu] ", c[i]->fsyncdata_errors );
+                    }
+
                     if( c[i]->wipe_status == 1 )
                     {
+                        const char* op_prefix = c[i]->io_direction == NWIPE_IO_DIRECTION_FORWARD ? "" : "<";
+                        const char* op_suffix = c[i]->io_direction == NWIPE_IO_DIRECTION_FORWARD ? ">" : "";
+
                         switch( c[i]->pass_type )
                         {
                             /* Each text field in square brackets should be the same number of characters
                              * to retain output in columns */
                             case NWIPE_PASS_FINAL_BLANK:
-                                if( !c[i]->sync_status )
+                                if( !c[i]->sync_status && !c[i]->retry_status )
                                 {
-                                    wprintw( main_window, "[ blanking] " );
+                                    wprintw( main_window, "%s[ blanking]%s ", op_prefix, op_suffix );
                                 }
                                 break;
 
                             case NWIPE_PASS_FINAL_OPS2:
-                                if( !c[i]->sync_status )
+                                if( !c[i]->sync_status && !c[i]->retry_status )
                                 {
-                                    wprintw( main_window, "[OPS2final] " );
+                                    wprintw( main_window, "%s[OPS2final]%s ", op_prefix, op_suffix );
                                 }
                                 break;
 
                             case NWIPE_PASS_WRITE:
-                                if( !c[i]->sync_status )
+                                if( !c[i]->sync_status && !c[i]->retry_status )
                                 {
-                                    wprintw( main_window, "[ writing ] " );
+                                    wprintw( main_window, "%s[ writing ]%s ", op_prefix, op_suffix );
                                 }
                                 break;
 
                             case NWIPE_PASS_VERIFY:
-                                if( !c[i]->sync_status )
+                                if( !c[i]->sync_status && !c[i]->retry_status )
                                 {
-                                    wprintw( main_window, "[verifying] " );
+                                    wprintw( main_window, "%s[verifying]%s ", op_prefix, op_suffix );
                                 }
                                 break;
 
@@ -7678,15 +7929,45 @@ void* nwipe_gui_status( void* ptr )
 
                         if( c[i]->sync_status )
                         {
-                            wprintw( main_window, "[ syncing ] " );
+                            wprintw( main_window, "%s[ syncing ]%s ", op_prefix, op_suffix );
+                        }
+                        else if( c[i]->retry_status )
+                        {
+                            wprintw( main_window, "%s[retrying ]%s ", op_prefix, op_suffix );
                         }
                     }
 
-                    /* Determine throughput nomenclature for this drive and output drives throughput to GUI */
-                    Determine_C_B_nomenclature(
-                        c[i]->throughput, nomenclature_result_str, NOMENCLATURE_RESULT_STR_SIZE );
+                    if( c[i]->wipe_status == 1 || nwipe_options.method == &nwipe_verify_zero
+                        || nwipe_options.method == &nwipe_verify_one || c[i]->result == 0 )
+                    {
+                        /* Determine throughput nomenclature for this drive and output drives throughput to GUI */
+                        Determine_C_B_nomenclature(
+                            c[i]->throughput, nomenclature_result_str, NOMENCLATURE_RESULT_STR_SIZE );
 
-                    wprintw( main_window, "[%s/s] ", nomenclature_result_str );
+                        wprintw( main_window, "[%s/s] ", nomenclature_result_str );
+                    }
+                    else
+                    {
+                        /* If the wipe failed, show percentage that was erased (calculated as in PDF). */
+                        char bytes_percent_str[7] = "";
+
+                        if( c[i]->device_type == NWIPE_DEVICE_NVME || c[i]->device_type == NWIPE_DEVICE_VIRT
+                            || c[i]->HPA_status == HPA_NOT_APPLICABLE )
+                        {
+                            convert_double_to_string(
+                                bytes_percent_str,
+                                (double) ( (double) c[i]->bytes_erased / (double) c[i]->device_size ) * 100 );
+                        }
+                        else
+                        {
+                            convert_double_to_string( bytes_percent_str,
+                                                      (double) ( (double) c[i]->bytes_erased
+                                                                 / (double) c[i]->Calculated_real_max_size_in_bytes )
+                                                          * 100 );
+                        }
+
+                        wprintw( main_window, "[erased:%s%%] ", bytes_percent_str );
+                    }
 
                     /* Insert whitespace. */
                     yy += 1;
@@ -7784,11 +8065,12 @@ void* nwipe_gui_status( void* ptr )
                 }
 
                 /* Print the error count. */
-                mvwprintw( stats_window, NWIPE_GUI_STATS_ERRORS_Y, NWIPE_GUI_STATS_ERRORS_X, "Errors:" );
+                mvwprintw( stats_window, NWIPE_GUI_STATS_ERRORS_Y, NWIPE_GUI_STATS_ERRORS_X, "Retries/Errors:" );
                 mvwprintw( stats_window,
                            NWIPE_GUI_STATS_ERRORS_Y,
                            NWIPE_GUI_STATS_TAB,
-                           "  %llu",
+                           "%llu/%llu",
+                           nwipe_misc_thread_data->io_retries,
                            nwipe_misc_thread_data->errors );
 
                 /* Add a border. */
@@ -7835,6 +8117,7 @@ int compute_stats( void* ptr )
     nwipe_misc_thread_data->throughput = 0;
     nwipe_misc_thread_data->maxeta = 0;
     nwipe_misc_thread_data->errors = 0;
+    nwipe_misc_thread_data->io_retries = 0;
 
     /* Enumerate all contexts to compute statistics. */
     for( i = 0; i < count; i++ )
@@ -7880,6 +8163,22 @@ int compute_stats( void* ptr )
         {
             /* Accumulate combined throughput. */
             nwipe_misc_thread_data->throughput += c[i]->throughput;
+        }
+
+        /* Accumulate I/O retry count */
+        nwipe_misc_thread_data->io_retries += c[i]->io_retries;
+
+        if( c[i]->wipe_status == 0 && c[i]->result != 0 )
+        {
+            /*
+             * If the wipe finished with non-zero but did not internally increase
+             * any error count, set at least one pass error for consistency between
+             * the shown FAILURE/IOERROR status and the error count (also done in CLI).
+             */
+            if( c[i]->pass_errors == 0 && c[i]->verify_errors == 0 && c[i]->fsyncdata_errors == 0 )
+            {
+                c[i]->pass_errors = 1;
+            }
         }
 
         /* Accumulate the error count. */

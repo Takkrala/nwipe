@@ -250,8 +250,9 @@ void create_header_and_footer( nwipe_context_t* c, char* page_title )
 void pdf_header_footer_text( nwipe_context_t* c, char* page_title )
 {
     extern char dmidecode_system_serial_number[DMIDECODE_RESULT_LENGTH];
-    extern char dmidecode_system_uuid[DMIDECODE_RESULT_LENGTH];
-
+    extern char dmidecode_system_model_name[DMIDECODE_RESULT_LENGTH];
+    extern char dmidecode_system_manufacturer[DMIDECODE_RESULT_LENGTH];
+    
     const char* user_defined_tag;
 
     /* variables used by libconfig for extracting data from nwipe.conf */

@@ -274,7 +274,7 @@ int create_system_multi_disc_pdf( nwipe_thread_data_ptr_t* ptrx )
      */
     char PDF_filename[FILENAME_MAX];  // The filename of the PDF certificate/report.
     replace_non_alphanumeric( end_time_text, '-' );
-    snprintf( PDF_filename, sizeof( PDF_filename ), "nwipe_report_system.pdf" );
+    snprintf( PDF_filename, sizeof( PDF_filename ), "TRueWipe_report_system.pdf" );
 
     pdf_save( pdf, PDF_filename );
     pdf_destroy( pdf );
